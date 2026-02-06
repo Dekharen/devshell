@@ -1,5 +1,5 @@
 use crate::config::schema::Config;
-use crate::error::DevshellError;
+use crate::error::{DevshellError, IoErrorContext};
 use crate::fs;
 use std::path::PathBuf;
 
@@ -44,7 +44,9 @@ fn find_local_configs() -> Result<Vec<PathBuf>, DevshellError> {
     let current_dir = std::env::current_dir()?;
     let mut configs = Vec::new();
 
-    for entry in std::fs::read_dir(current_dir)? {
+    for entry in
+        std::fs::read_dir(current_dir).with_context("Reading current directory for config files")?
+    {
         let entry = entry?;
         let path = entry.path();
 
@@ -64,17 +66,34 @@ fn load_default_config() -> Result<Config, DevshellError> {
     let default_path = fs::get_config_dir().join("default.devshell.toml");
 
     if !default_path.exists() {
-        return Err(DevshellError::ConfigNotFound(format!(
-            "Default config not found at {}",
-            default_path.display()
-        )));
+        create_default_config(&default_path)?;
     }
 
     load_config_from_path(&default_path)
 }
 
+fn create_default_config(path: &std::path::Path) -> Result<(), DevshellError> {
+    use crate::fragments::embedded;
+
+    let default_config_content = embedded::get_default_config();
+
+    // Ensure parent directory exists
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).with_context_and_file(
+            "Creating config directory for default config",
+            &parent.to_string_lossy(),
+        )?;
+    }
+
+    std::fs::write(path, default_config_content)
+        .with_context_and_file("Creating default config file", &path.to_string_lossy())?;
+
+    Ok(())
+}
+
 fn load_config_from_path(path: &PathBuf) -> Result<Config, DevshellError> {
-    let content = std::fs::read_to_string(path)?;
+    let content = std::fs::read_to_string(path)
+        .with_context_and_file("Reading config file", &path.to_string_lossy())?;
     let config: Config = toml::from_str(&content)?;
     Ok(config)
 }

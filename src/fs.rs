@@ -1,5 +1,5 @@
 // Filesystem operations
-use crate::error::DevshellError;
+use crate::error::{DevshellError, IoErrorContext};
 use std::path::PathBuf;
 
 pub fn get_config_dir() -> PathBuf {
@@ -23,11 +23,15 @@ pub fn ensure_directories_exist() -> Result<(), DevshellError> {
     let fragments_dir = get_fragments_dir();
 
     if !config_dir.exists() {
-        std::fs::create_dir_all(&config_dir)?;
+        std::fs::create_dir_all(&config_dir)
+            .with_context_and_file("Creating config directory", &config_dir.to_string_lossy())?;
     }
 
     if !fragments_dir.exists() {
-        std::fs::create_dir_all(&fragments_dir)?;
+        std::fs::create_dir_all(&fragments_dir).with_context_and_file(
+            "Creating fragments directory",
+            &fragments_dir.to_string_lossy(),
+        )?;
     }
 
     Ok(())
@@ -48,7 +52,10 @@ pub fn discover_disk_fragments() -> Result<Vec<String>, DevshellError> {
         return Ok(fragments);
     }
 
-    for entry in std::fs::read_dir(fragments_dir)? {
+    for entry in std::fs::read_dir(&fragments_dir).with_context_and_file(
+        "Reading fragments directory",
+        &fragments_dir.to_string_lossy(),
+    )? {
         let entry = entry?;
         let path = entry.path();
 

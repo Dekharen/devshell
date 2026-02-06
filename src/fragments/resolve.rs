@@ -1,4 +1,4 @@
-use crate::error::DevshellError;
+use crate::error::{DevshellError, IoErrorContext};
 use crate::fragments::embedded;
 use crate::fs;
 
@@ -44,7 +44,8 @@ fn resolve_disk_fragment(path: &str) -> Result<String, DevshellError> {
         )));
     }
 
-    Ok(std::fs::read_to_string(fragment_path)?)
+    Ok(std::fs::read_to_string(&fragment_path)
+        .with_context_and_file("Reading disk fragment", &fragment_path.to_string_lossy())?)
 }
 
 pub fn list_embedded_fragments() -> Vec<&'static str> {

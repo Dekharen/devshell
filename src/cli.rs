@@ -1,6 +1,6 @@
 use crate::config::load;
 use crate::docker::{build, run};
-use crate::error::DevshellError;
+use crate::error::{DevshellError, IoErrorContext};
 use crate::fragments::resolve;
 use crate::fs;
 use crate::util;
@@ -82,8 +82,15 @@ fn generate_fragment(fragment_ref: &str) -> Result<(), DevshellError> {
     let content = resolve::resolve_fragment(fragment_ref)?;
 
     let output_path = fs::get_fragments_dir().join(format!("{}.docker", fragment_path));
-    crate::fs::ensure_dir_exists(output_path.parent().unwrap())?;
-    std::fs::write(&output_path, content)?;
+    crate::fs::ensure_dir_exists(output_path.parent().unwrap()).map_err(|e| {
+        DevshellError::IoErrorWithContext {
+            error: e,
+            context: "Creating fragment directory".to_string(),
+            file_path: Some(output_path.parent().unwrap().to_string_lossy().to_string()),
+        }
+    })?;
+    std::fs::write(&output_path, content)
+        .with_context_and_file("Writing fragment file", &output_path.to_string_lossy())?;
 
     println!("Generated fragment: {}", output_path.display());
     Ok(())

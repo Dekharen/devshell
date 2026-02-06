@@ -76,3 +76,24 @@ RUN mkdir -p /home/dev/.local/bin"#,
 
     fragments
 }
+
+pub fn get_default_config() -> &'static str {
+    r#"name = "dev-shell"
+
+stages = [
+    "@base/debian",
+    "@features/basic-debian",
+    "@post/dev-user",
+]
+
+docker_args = [
+    "--memory=4g",
+    "--cpus=2",
+]
+
+[[volumes]]
+host = "."
+container = "/workspace"
+mode = "rw"
+"#
+}

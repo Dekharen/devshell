@@ -9,7 +9,11 @@ pub enum DevshellError {
     DockerError(String),
     DockerNotInstalled,
     DockerDaemonNotRunning,
-    IoError(std::io::Error),
+    IoErrorWithContext {
+        error: std::io::Error,
+        context: String,
+        file_path: Option<String>,
+    },
 }
 
 impl fmt::Display for DevshellError {
@@ -28,7 +32,17 @@ impl fmt::Display for DevshellError {
                 write!(f, "Docker is not installed or not in PATH")
             }
             DevshellError::DockerDaemonNotRunning => write!(f, "Docker daemon is not running"),
-            DevshellError::IoError(e) => write!(f, "IO error: {}", e),
+            DevshellError::IoErrorWithContext {
+                error,
+                context,
+                file_path,
+            } => {
+                write!(f, "IO error: {}", context)?;
+                if let Some(path) = file_path {
+                    write!(f, " (file: {})", path)?;
+                }
+                write!(f, ": {}", error)
+            }
         }
     }
 }
@@ -43,6 +57,33 @@ impl From<toml::de::Error> for DevshellError {
 
 impl From<std::io::Error> for DevshellError {
     fn from(err: std::io::Error) -> Self {
-        DevshellError::IoError(err)
+        DevshellError::IoErrorWithContext {
+            error: err,
+            context: "Unknown operation".to_string(),
+            file_path: None,
+        }
+    }
+}
+
+pub trait IoErrorContext<T> {
+    fn with_context(self, context: &str) -> Result<T, DevshellError>;
+    fn with_context_and_file(self, context: &str, file_path: &str) -> Result<T, DevshellError>;
+}
+
+impl<T> IoErrorContext<T> for Result<T, std::io::Error> {
+    fn with_context(self, context: &str) -> Result<T, DevshellError> {
+        self.map_err(|e| DevshellError::IoErrorWithContext {
+            error: e,
+            context: context.to_string(),
+            file_path: None,
+        })
+    }
+
+    fn with_context_and_file(self, context: &str, file_path: &str) -> Result<T, DevshellError> {
+        self.map_err(|e| DevshellError::IoErrorWithContext {
+            error: e,
+            context: context.to_string(),
+            file_path: Some(file_path.to_string()),
+        })
     }
 }
