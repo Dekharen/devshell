@@ -1,0 +1,5 @@
+name = "test"
+
+stages = ["@base/debian"]
+
+attach_command = "/bin/bash"

@@ -68,7 +68,7 @@ pub fn run_container(
             if config.attach_command.is_some() {
                 container::run_attached_container(config, image_name, container_name)?;
             } else {
-                run_simple_container(config, image_name)?;
+                run_simple_container(config, image_name, container_name)?;
             }
         }
     } else {
@@ -78,15 +78,24 @@ pub fn run_container(
             container::run_attached_container(config, image_name, container_name)?;
         } else {
             // Standard one-shot container (existing logic)
-            run_simple_container(config, image_name)?;
+            run_simple_container(config, image_name, container_name)?;
         }
     }
 
     Ok(())
 }
 
-fn run_simple_container(config: &Config, image_name: &str) -> Result<(), DevshellError> {
-    let mut args = vec!["run".to_string()];
+fn run_simple_container(
+    config: &Config,
+    image_name: &str,
+    container_name: &str,
+) -> Result<(), DevshellError> {
+    let mut args = vec![
+        "run".to_string(),
+        "--rm".to_string(), // Auto-remove one-shot containers
+        "--name".to_string(),
+        container_name.to_string(),
+    ];
 
     args.extend(config.docker_args.clone());
 

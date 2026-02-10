@@ -54,8 +54,14 @@ fn handle_command(command: Commands) -> Result<(), DevshellError> {
     match command {
         Commands::Run { name } => {
             let (config, is_local) = load::load_config_with_source(name.as_deref())?;
+            eprintln!(
+                "DEBUG: Config loaded: {}, is_local: {}, attach: {:?}",
+                config.name, is_local, config.attach_command
+            );
             let image_name = build::build_image(&config.name, &config.stages)?;
+            eprintln!("DEBUG: Image name: {}", image_name);
             let container_name = container::get_container_name(&config.name, is_local);
+            eprintln!("DEBUG: Container name: {}", container_name);
             run::run_container(&config, &image_name, &container_name)?;
             build::cleanup_temp_files()?;
         }
