@@ -1,11 +1,11 @@
 use crate::config::load;
-use crate::docker::{build, run};
+use crate::docker::{build, container, run};
 use crate::error::{DevshellError, IoErrorContext};
 use crate::fragments::resolve;
 use crate::fs;
 use crate::util;
 use clap::{Parser, Subcommand};
-use std::process::exit;
+use std::process::{exit, Command};
 
 #[derive(Parser)]
 #[command(name = "devshell")]
@@ -34,6 +34,11 @@ pub enum Commands {
     },
     /// Check system and configuration
     Doctor,
+    /// Attach to a running devshell container
+    Attach {
+        /// Container name or config name
+        name: String,
+    },
 }
 
 pub fn run() {
@@ -48,9 +53,10 @@ pub fn run() {
 fn handle_command(command: Commands) -> Result<(), DevshellError> {
     match command {
         Commands::Run { name } => {
-            let config = load::load_config(name.as_deref())?;
+            let (config, is_local) = load::load_config_with_source(name.as_deref())?;
             let image_name = build::build_image(&config.name, &config.stages)?;
-            run::run_container(&config, &image_name)?;
+            let container_name = container::get_container_name(&config.name, is_local);
+            run::run_container(&config, &image_name, &container_name)?;
             build::cleanup_temp_files()?;
         }
         Commands::Show { fragment } => {
@@ -67,8 +73,74 @@ fn handle_command(command: Commands) -> Result<(), DevshellError> {
         Commands::Doctor => {
             util::run_doctor()?;
         }
+        Commands::Attach { name } => {
+            attach_to_container(&name)?;
+        }
     }
     Ok(())
+}
+
+fn attach_to_container(name: &String) -> Result<(), DevshellError> {
+    let running_containers = list_devshell_containers()?;
+
+    let target_container = if running_containers.contains(name) {
+        Some(name.to_string())
+    } else {
+        find_container_by_config_name(name)?
+    };
+
+    if let Some(container_name) = target_container {
+        let (config, _) = load::load_config_with_source(Some(name))?;
+
+        if let Some(attach_cmd) = config.attach_command {
+            container::attach_to_container(&container_name, &attach_cmd)
+        } else {
+            let msg = format!(
+                "Container '{}' exists but has no attach_command configured",
+                container_name
+            );
+            return Err(DevshellError::DockerError(msg));
+        }
+    } else {
+        let msg = format!("No running devshell container found matching '{}'", name);
+        return Err(DevshellError::DockerError(msg));
+    }
+}
+
+fn list_devshell_containers() -> Result<Vec<String>, DevshellError> {
+    let output = Command::new("docker")
+        .args(&["ps", "--format={{.Names}}"])
+        .output()
+        .map_err(|e| DevshellError::IoErrorWithContext {
+            error: e,
+            context: "Listing running containers".to_string(),
+            file_path: None,
+        })?;
+
+    let container_names = String::from_utf8_lossy(&output.stdout);
+    Ok(container_names
+        .lines()
+        .filter(|name| name.starts_with("devshell-"))
+        .map(|name| {
+            name.trim_start_matches("devshell-")
+                // .unwrap_or(name)
+                .to_string()
+        })
+        .collect())
+}
+
+fn find_container_by_config_name(config_name: &str) -> Result<Option<String>, DevshellError> {
+    let running_containers = list_devshell_containers()?;
+
+    for container in &running_containers {
+        if container.as_str() == config_name {
+            return Ok(Some(container::get_container_name(config_name, false)));
+        }
+        if container.as_str() == format!("local-{}", config_name) {
+            return Ok(Some(container::get_container_name(config_name, true)));
+        }
+    }
+    Ok(None)
 }
 
 fn generate_fragment(fragment_ref: &str) -> Result<(), DevshellError> {

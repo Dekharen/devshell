@@ -4,10 +4,17 @@ use crate::fs;
 use std::path::PathBuf;
 
 pub fn load_config(name: Option<&str>) -> Result<Config, DevshellError> {
+    let (config, is_local) = load_config_with_source(name)?;
+    Ok(config)
+}
+
+pub fn load_config_with_source(name: Option<&str>) -> Result<(Config, bool), DevshellError> {
     if let Some(name) = name {
-        load_named_config(name)
+        let config = load_named_config(name)?;
+        Ok((config, false)) // Named configs are not local
     } else {
-        load_local_or_default_config()
+        let (config, is_local) = load_local_or_default_config()?;
+        Ok((config, is_local)) // Use the actual source flag
     }
 }
 
@@ -25,12 +32,18 @@ fn load_named_config(name: &str) -> Result<Config, DevshellError> {
     load_config_from_path(&config_path)
 }
 
-fn load_local_or_default_config() -> Result<Config, DevshellError> {
+fn load_local_or_default_config() -> Result<(Config, bool), DevshellError> {
     let local_configs = find_local_configs()?;
 
     match local_configs.len() {
-        0 => load_default_config(),
-        1 => load_config_from_path(&local_configs[0]),
+        0 => {
+            let config = load_default_config()?;
+            Ok((config, false)) // Default config is not local
+        }
+        1 => {
+            let config = load_config_from_path(&local_configs[0])?;
+            Ok((config, true)) // Local config is local
+        }
         _ => Err(DevshellError::MultipleConfigs(
             local_configs
                 .iter()
