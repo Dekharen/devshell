@@ -12,6 +12,7 @@ pub fn run_container(
     // Check if container already exists
     if container::container_exists(container_name)? {
         let is_running = container::is_container_running(container_name)?;
+        println!("{container_name} name {is_running}");
 
         if is_running {
             // Container is running, prompt user
@@ -47,11 +48,27 @@ pub fn run_container(
                 _ => unreachable!(),
             }
         } else {
-            // Container exists but is stopped, just start it
-            container::start_container(container_name)?;
+            // Container exists but is stopped, recreate it for consistency
+            println!(
+                "Container '{}' is stopped. Recreating for consistency...",
+                container_name
+            );
 
-            if let Some(attach_cmd) = &config.attach_command {
-                container::attach_to_container(container_name, attach_cmd)?;
+            // Remove stopped container
+            Command::new("docker")
+                .args(&["rm", "-f", container_name])
+                .output()
+                .map_err(|e| DevshellError::IoErrorWithContext {
+                    error: e,
+                    context: "Removing stopped container".to_string(),
+                    file_path: None,
+                })?;
+
+            // Create fresh container
+            if config.attach_command.is_some() {
+                container::run_attached_container(config, image_name, container_name)?;
+            } else {
+                run_simple_container(config, image_name)?;
             }
         }
     } else {

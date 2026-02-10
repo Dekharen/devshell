@@ -109,7 +109,23 @@ pub fn run_attached_container(
         )));
     }
 
-    // Brief pause to ensure container is ready
+    // Wait for container to be ready and running
+    let mut retries = 10;
+    while retries > 0 {
+        if is_container_running(container_name)? {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        retries -= 1;
+    }
+
+    if !is_container_running(container_name)? {
+        return Err(DevshellError::DockerError(format!(
+            "Container failed to start within expected time"
+        )));
+    }
+
+    // Additional pause for container initialization
     std::thread::sleep(std::time::Duration::from_millis(1000));
 
     // Attach immediately
@@ -146,6 +162,14 @@ pub fn attach_to_container(
     container_name: &str,
     attach_command: &str,
 ) -> Result<(), DevshellError> {
+    // Verify container is running before attaching
+    if !is_container_running(container_name)? {
+        return Err(DevshellError::DockerError(format!(
+            "Cannot attach to container '{}': container is not running",
+            container_name
+        )));
+    }
+
     let mut child = Command::new("docker")
         .args(&["exec", "-it", container_name, attach_command])
         .spawn()

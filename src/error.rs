@@ -7,8 +7,8 @@ pub enum DevshellError {
     InvalidToml(toml::de::Error),
     FragmentNotFound(String),
     DockerError(String),
-    DockerNotInstalled,
-    DockerDaemonNotRunning,
+    // DockerNotInstalled,
+    // DockerDaemonNotRunning,
     IoErrorWithContext {
         error: std::io::Error,
         context: String,
@@ -28,10 +28,10 @@ impl fmt::Display for DevshellError {
                 write!(f, "Fragment not found: {}", fragment)
             }
             DevshellError::DockerError(msg) => write!(f, "Docker error: {}", msg),
-            DevshellError::DockerNotInstalled => {
-                write!(f, "Docker is not installed or not in PATH")
-            }
-            DevshellError::DockerDaemonNotRunning => write!(f, "Docker daemon is not running"),
+            // DevshellError::DockerNotInstalled => {
+                // write!(f, "Docker is not installed or not in PATH")
+            // }
+            // DevshellError::DockerDaemonNotRunning => write!(f, "Docker daemon is not running"),
             DevshellError::IoErrorWithContext {
                 error,
                 context,
