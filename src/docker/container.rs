@@ -1,5 +1,5 @@
 use crate::config::schema::Config;
-use crate::error::{DevshellError, IoErrorContext};
+use crate::error::DevshellError;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;

@@ -74,6 +74,8 @@ WORKDIR /home/dev
 RUN mkdir -p /home/dev/.local/bin"#,
     );
 
+    fragments.insert("post/keep-alive", r#"CMD ["sleep", "infinity"]"#);
+
     fragments
 }
 
@@ -84,6 +86,7 @@ stages = [
     "@base/debian",
     "@features/basic-debian",
     "@post/dev-user",
+    "@post/keep-alive",
 ]
 
 docker_args = [
@@ -95,5 +98,7 @@ docker_args = [
 host = "."
 container = "/workspace"
 mode = "rw"
+
+attach_command = "/bin/bash"
 "#
 }

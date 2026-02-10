@@ -8,6 +8,8 @@ pub struct Config {
     pub docker_args: Vec<String>,
     #[serde(default)]
     pub volumes: Vec<Volume>,
+    #[serde(default)]
+    pub attach_command: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
