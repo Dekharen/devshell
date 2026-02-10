@@ -108,5 +108,6 @@ fn load_config_from_path(path: &PathBuf) -> Result<Config, DevshellError> {
     let content = std::fs::read_to_string(path)
         .with_context_and_file("Reading config file", &path.to_string_lossy())?;
     let config: Config = toml::from_str(&content)?;
+    println!("Configuration : {config:?}");
     Ok(config)
 }
