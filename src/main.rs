@@ -1,9 +1,9 @@
 mod cli;
 mod config;
-mod fragments;
 mod docker;
-mod fs;
 mod error;
+mod fragments;
+mod fs;
 mod util;
 
 fn main() {

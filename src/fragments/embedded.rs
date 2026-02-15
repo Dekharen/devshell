@@ -94,11 +94,11 @@ docker_args = [
     "--cpus=2",
 ]
 
+attach_command = "/bin/bash"
+
 [[volumes]]
 host = "."
 container = "/workspace"
 mode = "rw"
-
-attach_command = "/bin/bash"
 "#
 }

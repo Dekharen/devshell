@@ -5,7 +5,7 @@ use crate::fragments::resolve;
 use crate::fs;
 use crate::util;
 use clap::{Parser, Subcommand};
-use std::process::{exit, Command};
+use std::process::{Command, exit};
 
 #[derive(Parser)]
 #[command(name = "devshell")]
@@ -97,7 +97,6 @@ fn attach_to_container(name: &String) -> Result<(), DevshellError> {
 
     if let Some(container_name) = target_container {
         let (config, _) = load::load_config_with_source(Some(name))?;
-
         if let Some(attach_cmd) = config.attach_command {
             container::attach_to_container(&container_name, &attach_cmd)
         } else {

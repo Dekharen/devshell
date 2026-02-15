@@ -69,6 +69,7 @@ pub fn run_attached_container(
     let mut run_args = vec![
         "run".to_string(),
         "-d".to_string(),
+        "--userns=keep-id".to_string(),
         "--name".to_string(),
         container_name.to_string(),
     ];
@@ -132,8 +133,9 @@ pub fn run_attached_container(
     let attach_cmd = config.attach_command.as_deref().unwrap_or("/bin/bash");
 
     let mut child = Command::new("docker")
-        .args(&["exec", "-it", container_name, attach_cmd])
-        .spawn()
+        .args(&["exec", "-it",
+             container_name, attach_cmd])
+                .spawn()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
             context: "Attaching to container".to_string(),

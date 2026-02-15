@@ -14,6 +14,60 @@ pub enum DevshellError {
         context: String,
         file_path: Option<String>,
     },
+    ConfigurationDiagnosis(Vec<Diagnosis>),
+}
+
+#[derive(Debug)]
+pub enum Diagnosis {
+    FieldMisplacement {
+        field: String,
+        wrong_location: String,
+        suggestion: String,
+        file_path: Option<String>,
+    },
+    MissingRequiredField {
+        field: String,
+        reason: String,
+        suggestion: String,
+        file_path: Option<String>,
+    },
+    InconsistentConfiguration {
+        issue: String,
+        suggestion: String,
+        file_path: Option<String>,
+    },
+    SyntaxWarning {
+        warning: String,
+        suggestion: String,
+        file_path: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Severity {
+    Error,
+    Warning,
+    Info,
+}
+
+impl Diagnosis {
+    pub fn severity(&self) -> Severity {
+        match self {
+            Diagnosis::FieldMisplacement { .. } => Severity::Error,
+            Diagnosis::MissingRequiredField { .. } => Severity::Warning,
+            Diagnosis::InconsistentConfiguration { .. } => Severity::Warning,
+            Diagnosis::SyntaxWarning { .. } => Severity::Info,
+        }
+    }
+
+    pub fn file_path(&self) -> Option<&String> {
+        match self {
+            Diagnosis::FieldMisplacement { file_path, .. } => file_path.as_ref(),
+            Diagnosis::MissingRequiredField { file_path, .. } => file_path.as_ref(),
+            Diagnosis::InconsistentConfiguration { file_path, .. } => file_path.as_ref(),
+            Diagnosis::SyntaxWarning { file_path, .. } => file_path.as_ref(),
+        }
+    }
 }
 
 impl fmt::Display for DevshellError {
@@ -29,7 +83,7 @@ impl fmt::Display for DevshellError {
             }
             DevshellError::DockerError(msg) => write!(f, "Docker error: {}", msg),
             // DevshellError::DockerNotInstalled => {
-                // write!(f, "Docker is not installed or not in PATH")
+            // write!(f, "Docker is not installed or not in PATH")
             // }
             // DevshellError::DockerDaemonNotRunning => write!(f, "Docker daemon is not running"),
             DevshellError::IoErrorWithContext {
@@ -42,6 +96,18 @@ impl fmt::Display for DevshellError {
                     write!(f, " (file: {})", path)?;
                 }
                 write!(f, ": {}", error)
+            }
+            DevshellError::ConfigurationDiagnosis(diagnoses) => {
+                write!(f, "Configuration issues detected")?;
+                for (i, diagnosis) in diagnoses.iter().enumerate() {
+                    write!(
+                        f,
+                        "\n\n{}: {}",
+                        i + 1,
+                        crate::util::format_diagnosis(diagnosis)
+                    )?;
+                }
+                Ok(())
             }
         }
     }
