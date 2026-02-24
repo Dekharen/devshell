@@ -52,6 +52,7 @@ impl User {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserEntry {
+    #[serde(flatten)]
     pub user: User,
     #[serde(default)]
     pub default: bool,

@@ -487,4 +487,396 @@ attach_command = "/bin/sh"
             }
         }
     }
+
+    // ========================================
+    // USER SCHEMA PARSING TESTS
+    // ========================================
+
+    // These tests verify that the user configuration schema parses correctly
+    // Tests for all 4 user kinds: host_mirror, container_local, named_existing, root
+
+    #[test]
+    fn test_parse_container_local_user() {
+        // Test absolute minimum required fields
+        let config_content = r#"
+name = "test"
+stages = ["@base/debian"]
+
+[[users]]
+kind = "container_local"
+name = "dev"
+default = true
+"#;
+        let config: Config =
+            toml::from_str(config_content).expect("Should parse config with container_local user");
+
+        assert_eq!(config.users.len(), 1);
+        let user = &config.users[0];
+        assert!(
+            matches!(&user.user, crate::config::schema::User::ContainerLocal { name, .. } if name == "dev")
+        );
+        assert!(user.default);
+    }
+
+    #[test]
+    fn test_parse_container_local_user_with_optional_fields() {
+        let config_content = r#"
+name = "test"
+stages = ["@base/debian"]
+
+[[users]]
+kind = "container_local"
+name = "dev"
+home = "/home/dev"
+shell = "/bin/zsh"
+default = true
+"#;
+        let config: Config = toml::from_str(config_content)
+            .expect("Should parse config with all container_local fields");
+
+        let user = &config.users[0];
+        if let crate::config::schema::User::ContainerLocal { name, home, shell } = &user.user {
+            assert_eq!(name, "dev");
+            assert_eq!(home, &Some("/home/dev".to_string()));
+            assert_eq!(shell, &Some("/bin/zsh".to_string()));
+        } else {
+            panic!("Expected ContainerLocal user");
+        }
+    }
+
+    #[test]
+    fn test_parse_host_mirror_user() {
+        let config_content = r#"
+name = "test"
+stages = ["@base/debian"]
+
+[[users]]
+kind = "host_mirror"
+name = "jenicola"
+proxy = "dev"
+home = "/home/dev"
+default = true
+"#;
+        let config: Config =
+            toml::from_str(config_content).expect("Should parse config with host_mirror user");
+
+        assert_eq!(config.users.len(), 1);
+        let user = &config.users[0];
+        assert!(
+            matches!(&user.user, crate::config::schema::User::HostMirror { name, proxy, home } 
+            if name == "jenicola" && proxy == "dev" && home == "/home/dev")
+        );
+        assert!(user.default);
+    }
+
+    #[test]
+    fn test_parse_named_existing_user() {
+        let config_content = r#"
+name = "test"
+stages = ["@base/debian"]
+
+[[users]]
+kind = "named_existing"
+name = "node"
+default = true
+"#;
+        let config: Config =
+            toml::from_str(config_content).expect("Should parse config with named_existing user");
+
+        assert_eq!(config.users.len(), 1);
+        let user = &config.users[0];
+        assert!(
+            matches!(&user.user, crate::config::schema::User::NamedExisting { name, .. } if name == "node")
+        );
+        assert!(user.default);
+    }
+
+    #[test]
+    fn test_parse_named_existing_user_with_home() {
+        let config_content = r#"
+name = "test"
+stages = ["@base/debian"]
+
+[[users]]
+kind = "named_existing"
+name = "www-data"
+home = "/var/www"
+default = true
+"#;
+        let config: Config = toml::from_str(config_content)
+            .expect("Should parse config with named_existing user and home");
+
+        let user = &config.users[0];
+        if let crate::config::schema::User::NamedExisting { name, home } = &user.user {
+            assert_eq!(name, "www-data");
+            assert_eq!(home, &Some("/var/www".to_string()));
+        } else {
+            panic!("Expected NamedExisting user");
+        }
+    }
+
+    #[test]
+    fn test_parse_root_user() {
+        let config_content = r#"
+name = "test"
+stages = ["@base/debian"]
+
+[[users]]
+kind = "root"
+default = true
+"#;
+        let config: Config =
+            toml::from_str(config_content).expect("Should parse config with root user");
+
+        assert_eq!(config.users.len(), 1);
+        let user = &config.users[0];
+        assert!(matches!(&user.user, crate::config::schema::User::Root {}));
+        assert!(user.default);
+    }
+
+    #[test]
+    fn test_parse_multiple_users() {
+        let config_content = r#"
+name = "test"
+stages = ["@base/debian"]
+
+[[users]]
+kind = "container_local"
+name = "dev"
+default = true
+
+[[users]]
+kind = "host_mirror"
+name = "jenicola"
+proxy = "dev"
+home = "/home/dev"
+
+[[users]]
+kind = "root"
+"#;
+        let config: Config =
+            toml::from_str(config_content).expect("Should parse config with multiple users");
+
+        assert_eq!(config.users.len(), 3);
+
+        // First user is default
+        assert!(config.users[0].default);
+        assert!(
+            matches!(&config.users[0].user, crate::config::schema::User::ContainerLocal { name, .. } if name == "dev")
+        );
+
+        // Second user is not default
+        assert!(!config.users[1].default);
+        assert!(
+            matches!(&config.users[1].user, crate::config::schema::User::HostMirror { name, .. } if name == "jenicola")
+        );
+
+        // Third user is not default
+        assert!(!config.users[2].default);
+        assert!(matches!(
+            &config.users[2].user,
+            crate::config::schema::User::Root {}
+        ));
+    }
+
+    // ========================================
+    // USER VALIDATION TESTS
+    // ========================================
+
+    // These tests verify that user validation works correctly
+
+    #[test]
+    fn test_validate_users_no_users() {
+        let config = Config {
+            name: "test".to_string(),
+            stages: vec!["@base/debian".to_string()],
+            docker_args: vec![],
+            volumes: vec![],
+            attach_command: None,
+            users: vec![],
+        };
+
+        let result = config.validate_users();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            crate::error::DevshellError::NoUserDeclared
+        ));
+    }
+
+    #[test]
+    fn test_validate_users_no_default() {
+        let config = Config {
+            name: "test".to_string(),
+            stages: vec!["@base/debian".to_string()],
+            docker_args: vec![],
+            volumes: vec![],
+            attach_command: None,
+            users: vec![crate::config::schema::UserEntry {
+                user: crate::config::schema::User::ContainerLocal {
+                    name: "dev".to_string(),
+                    home: None,
+                    shell: None,
+                },
+                default: false,
+            }],
+        };
+
+        let result = config.validate_users();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            crate::error::DevshellError::NoDefaultUser
+        ));
+    }
+
+    #[test]
+    fn test_find_user_explicit() {
+        let config = Config {
+            name: "test".to_string(),
+            stages: vec!["@base/debian".to_string()],
+            docker_args: vec![],
+            volumes: vec![],
+            attach_command: None,
+            users: vec![
+                crate::config::schema::UserEntry {
+                    user: crate::config::schema::User::ContainerLocal {
+                        name: "dev".to_string(),
+                        home: None,
+                        shell: None,
+                    },
+                    default: true,
+                },
+                crate::config::schema::UserEntry {
+                    user: crate::config::schema::User::HostMirror {
+                        name: "jenicola".to_string(),
+                        proxy: "dev".to_string(),
+                        home: "/home/dev".to_string(),
+                    },
+                    default: false,
+                },
+            ],
+        };
+
+        let result = config.find_user_or_default(Some("jenicola"));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().name(), "jenicola");
+    }
+
+    #[test]
+    fn test_find_user_not_found() {
+        let config = Config {
+            name: "test".to_string(),
+            stages: vec!["@base/debian".to_string()],
+            docker_args: vec![],
+            volumes: vec![],
+            attach_command: None,
+            users: vec![crate::config::schema::UserEntry {
+                user: crate::config::schema::User::ContainerLocal {
+                    name: "dev".to_string(),
+                    home: None,
+                    shell: None,
+                },
+                default: true,
+            }],
+        };
+
+        let result = config.find_user_or_default(Some("nonexistent"));
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            crate::error::DevshellError::UserNotFound { .. }
+        ));
+    }
+
+    #[test]
+    fn test_find_user_default() {
+        let config = Config {
+            name: "test".to_string(),
+            stages: vec!["@base/debian".to_string()],
+            docker_args: vec![],
+            volumes: vec![],
+            attach_command: None,
+            users: vec![
+                crate::config::schema::UserEntry {
+                    user: crate::config::schema::User::ContainerLocal {
+                        name: "dev".to_string(),
+                        home: None,
+                        shell: None,
+                    },
+                    default: false,
+                },
+                crate::config::schema::UserEntry {
+                    user: crate::config::schema::User::HostMirror {
+                        name: "jenicola".to_string(),
+                        proxy: "dev".to_string(),
+                        home: "/home/dev".to_string(),
+                    },
+                    default: true,
+                },
+            ],
+        };
+
+        let result = config.find_user_or_default(None);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().name(), "jenicola");
+    }
+
+    #[test]
+    fn test_get_host_mirror_user() {
+        let config = Config {
+            name: "test".to_string(),
+            stages: vec!["@base/debian".to_string()],
+            docker_args: vec![],
+            volumes: vec![],
+            attach_command: None,
+            users: vec![
+                crate::config::schema::UserEntry {
+                    user: crate::config::schema::User::ContainerLocal {
+                        name: "dev".to_string(),
+                        home: None,
+                        shell: None,
+                    },
+                    default: true,
+                },
+                crate::config::schema::UserEntry {
+                    user: crate::config::schema::User::HostMirror {
+                        name: "jenicola".to_string(),
+                        proxy: "dev".to_string(),
+                        home: "/home/dev".to_string(),
+                    },
+                    default: false,
+                },
+            ],
+        };
+
+        let result = config.get_host_mirror_user();
+        assert!(result.is_some());
+        let (name, proxy, home) = result.unwrap();
+        assert_eq!(name, "jenicola");
+        assert_eq!(proxy, "dev");
+        assert_eq!(home, "/home/dev");
+    }
+
+    #[test]
+    fn test_get_host_mirror_user_none() {
+        let config = Config {
+            name: "test".to_string(),
+            stages: vec!["@base/debian".to_string()],
+            docker_args: vec![],
+            volumes: vec![],
+            attach_command: None,
+            users: vec![crate::config::schema::UserEntry {
+                user: crate::config::schema::User::ContainerLocal {
+                    name: "dev".to_string(),
+                    home: None,
+                    shell: None,
+                },
+                default: true,
+            }],
+        };
+
+        let result = config.get_host_mirror_user();
+        assert!(result.is_none());
+    }
 }

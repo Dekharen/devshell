@@ -101,7 +101,7 @@ host = "."
 container = "/workspace"
 mode = "rw"
 
-[[user]]
+[[users]]
 kind = "container_local"
 name = "dev"
 default = true
