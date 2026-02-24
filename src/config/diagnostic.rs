@@ -256,6 +256,72 @@ impl ConfigDiagnostic {
                 file_path: file_path.clone(),
             });
         }
+
+        // Validate users
+        Self::check_user_configuration(config, diagnoses, file_path);
+    }
+
+    fn check_user_configuration(
+        config: &Config,
+        diagnoses: &mut Vec<Diagnosis>,
+        file_path: &Option<String>,
+    ) {
+        let user_count = config.users.len();
+        let default_count = config.users.iter().filter(|u| u.default).count();
+
+        if user_count == 0 {
+            diagnoses.push(Diagnosis::MissingRequiredField {
+                field: "user".to_string(),
+                reason: "At least one user must be declared in the configuration".to_string(),
+                suggestion: "Add a user to your config:\n\n\
+[[user]]\nkind = \"container_local\"\nname = \"dev\"\ndefault = true\n\n\
+Or for host user mirroring:\n\n\
+[[user]]\nkind = \"host_mirror\"\nname = \"jenicola\"\nproxy = \"dev\"\nhome = \"/home/dev\"\ndefault = true".to_string(),
+                file_path: file_path.clone(),
+            });
+        } else if default_count == 0 {
+            diagnoses.push(Diagnosis::MissingRequiredField {
+                field: "default user".to_string(),
+                reason: "Exactly one user must be marked as default".to_string(),
+                suggestion: "Add `default = true` to one user entry:\n\n\
+[[user]]\nkind = \"container_local\"\nname = \"dev\"\ndefault = true"
+                    .to_string(),
+                file_path: file_path.clone(),
+            });
+        } else if default_count > 1 {
+            diagnoses.push(Diagnosis::InconsistentConfiguration {
+                issue: format!("{} users marked as default", default_count),
+                suggestion: "Only one user can have `default = true`".to_string(),
+                file_path: file_path.clone(),
+            });
+        }
+
+        // Validate host_mirror users have required fields
+        for (i, entry) in config.users.iter().enumerate() {
+            if let crate::config::schema::User::HostMirror { name, proxy, home } = &entry.user {
+                if name.is_empty() {
+                    diagnoses.push(Diagnosis::SyntaxWarning {
+                        warning: format!("User {} has empty name", i + 1),
+                        suggestion: "Provide a valid name for host_mirror user".to_string(),
+                        file_path: file_path.clone(),
+                    });
+                }
+                if proxy.is_empty() {
+                    diagnoses.push(Diagnosis::SyntaxWarning {
+                        warning: format!("User {} has empty proxy", i + 1),
+                        suggestion: "Provide a valid proxy name for host_mirror user".to_string(),
+                        file_path: file_path.clone(),
+                    });
+                }
+                if home.is_empty() {
+                    diagnoses.push(Diagnosis::SyntaxWarning {
+                        warning: format!("User {} has empty home", i + 1),
+                        suggestion: "Provide a valid home path for host_mirror user".to_string(),
+                        file_path: file_path.clone(),
+                    });
+                }
+            }
+        }
     }
 
     fn check_syntax_best_practices(

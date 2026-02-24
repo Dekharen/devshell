@@ -5,7 +5,7 @@ use crate::fragments::resolve;
 use crate::fs;
 use crate::util;
 use clap::{Parser, Subcommand};
-use std::process::{Command, exit};
+use std::process::{exit, Command};
 
 #[derive(Parser)]
 #[command(name = "devshell")]
@@ -21,6 +21,9 @@ pub enum Commands {
     Run {
         /// Configuration name (optional)
         name: Option<String>,
+        /// User to run as (must be declared in config)
+        #[arg(short, long)]
+        user: Option<String>,
     },
     /// Show a Dockerfile fragment
     Show {
@@ -52,17 +55,26 @@ pub fn run() {
 
 fn handle_command(command: Commands) -> Result<(), DevshellError> {
     match command {
-        Commands::Run { name } => {
+        Commands::Run { name, user } => {
             let (config, is_local) = load::load_config_with_source(name.as_deref())?;
+
+            config.validate_users()?;
+
+            let selected_user = config.find_user_or_default(user.as_deref())?;
+
             eprintln!(
-                "DEBUG: Config loaded: {}, is_local: {}, attach: {:?}",
-                config.name, is_local, config.attach_command
+                "DEBUG: Config loaded: {}, is_local: {}, attach: {:?}, user: {}",
+                config.name,
+                is_local,
+                config.attach_command,
+                selected_user.name()
             );
+
             let image_name = build::build_image(&config.name, &config.stages)?;
             eprintln!("DEBUG: Image name: {}", image_name);
             let container_name = container::get_container_name(&config.name, is_local);
             eprintln!("DEBUG: Container name: {}", container_name);
-            run::run_container(&config, &image_name, &container_name)?;
+            run::run_container(&config, &image_name, &container_name, Some(selected_user))?;
             build::cleanup_temp_files()?;
         }
         Commands::Show { fragment } => {

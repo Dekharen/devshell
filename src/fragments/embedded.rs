@@ -100,5 +100,10 @@ attach_command = "/bin/bash"
 host = "."
 container = "/workspace"
 mode = "rw"
+
+[[user]]
+kind = "container_local"
+name = "dev"
+default = true
 "#
 }

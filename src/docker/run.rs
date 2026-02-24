@@ -1,5 +1,5 @@
 use super::container;
-use crate::config::schema::Config;
+use crate::config::schema::{Config, UserEntry};
 use crate::error::DevshellError;
 use std::path::Path;
 use std::process::Command;
@@ -8,6 +8,7 @@ pub fn run_container(
     config: &Config,
     image_name: &str,
     container_name: &str,
+    user: Option<&UserEntry>,
 ) -> Result<(), DevshellError> {
     // Check if container already exists
     if container::container_exists(container_name)? {
@@ -39,7 +40,7 @@ pub fn run_container(
                             file_path: None,
                         })?;
 
-                    container::run_attached_container(config, image_name, container_name)?;
+                    container::run_attached_container(config, image_name, container_name, user)?;
                 }
                 "quit" => {
                     println!("Operation cancelled.");
@@ -66,7 +67,7 @@ pub fn run_container(
 
             // Create fresh container
             if config.attach_command.is_some() {
-                container::run_attached_container(config, image_name, container_name)?;
+                container::run_attached_container(config, image_name, container_name, user)?;
             } else {
                 run_simple_container(config, image_name, container_name)?;
             }
@@ -75,7 +76,7 @@ pub fn run_container(
         // Container doesn't exist, create new one
         if config.attach_command.is_some() {
             // Long-lived container with attach command
-            container::run_attached_container(config, image_name, container_name)?;
+            container::run_attached_container(config, image_name, container_name, user)?;
         } else {
             // Standard one-shot container (existing logic)
             run_simple_container(config, image_name, container_name)?;

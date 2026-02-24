@@ -1,4 +1,4 @@
-use crate::config::schema::Config;
+use crate::config::schema::{Config, UserEntry};
 use crate::error::DevshellError;
 use std::io::Write;
 use std::path::Path;
@@ -64,6 +64,7 @@ pub fn run_attached_container(
     config: &Config,
     image_name: &str,
     container_name: &str,
+    user: Option<&UserEntry>,
 ) -> Result<(), DevshellError> {
     // Start container in detached mode
     let mut run_args = vec![
@@ -129,13 +130,19 @@ pub fn run_attached_container(
     // Additional pause for container initialization
     std::thread::sleep(std::time::Duration::from_millis(1000));
 
+    // Run chown if user is host_mirror
+    if let Some(user_entry) = user {
+        if let Some((host_name, proxy, home)) = user_entry.user.as_host_mirror() {
+            run_chown(container_name, host_name, proxy, home)?;
+        }
+    }
+
     // Attach immediately
     let attach_cmd = config.attach_command.as_deref().unwrap_or("/bin/bash");
 
     let mut child = Command::new("docker")
-        .args(&["exec", "-it",
-             container_name, attach_cmd])
-                .spawn()
+        .args(&["exec", "-it", container_name, attach_cmd])
+        .spawn()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
             context: "Attaching to container".to_string(),
@@ -156,6 +163,97 @@ pub fn run_attached_container(
             status
         )));
     }
+
+    Ok(())
+}
+
+fn run_chown(
+    container_name: &str,
+    host_name: &str,
+    proxy: &str,
+    home: &str,
+) -> Result<(), DevshellError> {
+    let marker_path = "/devshell/marker/.chowned";
+
+    // Check if already chowned
+    let check = Command::new("docker")
+        .args(&["exec", container_name, "test", "-f", marker_path])
+        .output()
+        .map_err(|e| DevshellError::IoErrorWithContext {
+            error: e,
+            context: "Checking if chown already performed".to_string(),
+            file_path: None,
+        })?;
+
+    if check.status.success() {
+        eprintln!("DEBUG: Chown already performed, skipping");
+        return Ok(());
+    }
+
+    // Create marker directory if it doesn't exist
+    let mkdir_cmd = format!("mkdir -p /devshell/marker");
+    Command::new("docker")
+        .args(&["exec", container_name, "sh", "-c", &mkdir_cmd])
+        .output()
+        .map_err(|e| DevshellError::IoErrorWithContext {
+            error: e,
+            context: "Creating marker directory".to_string(),
+            file_path: None,
+        })?;
+
+    // Count files first, then chown
+    let count_cmd = format!("find {} -user {} 2>/dev/null | wc -l", home, proxy);
+    let count_output = Command::new("docker")
+        .args(&["exec", container_name, "sh", "-c", &count_cmd])
+        .output()
+        .map_err(|e| DevshellError::IoErrorWithContext {
+            error: e,
+            context: "Counting files to chown".to_string(),
+            file_path: None,
+        })?;
+
+    let file_count = String::from_utf8_lossy(&count_output.stdout)
+        .trim()
+        .to_string();
+
+    // Run chown command
+    let chown_cmd = format!(
+        "find {} -user {} -exec chown {}:{} {{}} + 2>/dev/null",
+        home, proxy, host_name, host_name
+    );
+
+    Command::new("docker")
+        .args(&["exec", container_name, "sh", "-c", &chown_cmd])
+        .output()
+        .map_err(|e| DevshellError::IoErrorWithContext {
+            error: e,
+            context: "Running chown".to_string(),
+            file_path: None,
+        })?;
+
+    // Write marker file
+    let marker_content =
+        format!(
+        "TIMESTAMP: {}\nCOMMAND: find {} -user {} -exec chown {}:{} {{}} +\nFILES_CHOWNED: {}\n",
+        chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ"),
+        home, proxy, host_name, host_name, file_count
+    );
+
+    let write_marker_cmd = format!("cat > {} << 'EOF'\n{}EOF", marker_path, marker_content);
+
+    Command::new("docker")
+        .args(&["exec", container_name, "sh", "-c", &write_marker_cmd])
+        .output()
+        .map_err(|e| DevshellError::IoErrorWithContext {
+            error: e,
+            context: "Writing marker file".to_string(),
+            file_path: None,
+        })?;
+
+    eprintln!(
+        "DEBUG: Chowned {} files from {} to {}",
+        file_count, proxy, host_name
+    );
 
     Ok(())
 }

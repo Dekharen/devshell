@@ -257,6 +257,7 @@ attach_command = "{}"
                 mode: "rw".to_string(),
             }],
             attach_command: Some("/bin/zsh".to_string()),
+            users: vec![],
         };
 
         let serialized = toml::to_string_pretty(&original).expect("Should serialize");

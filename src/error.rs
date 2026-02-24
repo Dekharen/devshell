@@ -7,8 +7,13 @@ pub enum DevshellError {
     InvalidToml(toml::de::Error),
     FragmentNotFound(String),
     DockerError(String),
-    // DockerNotInstalled,
-    // DockerDaemonNotRunning,
+    UserNotFound {
+        requested: String,
+        suggestion: String,
+    },
+    NoUserDeclared,
+    NoDefaultUser,
+    MultipleDefaultUsers,
     IoErrorWithContext {
         error: std::io::Error,
         context: String,
@@ -82,6 +87,37 @@ impl fmt::Display for DevshellError {
                 write!(f, "Fragment not found: {}", fragment)
             }
             DevshellError::DockerError(msg) => write!(f, "Docker error: {}", msg),
+            DevshellError::UserNotFound {
+                requested,
+                suggestion,
+            } => {
+                write!(
+                    f,
+                    "User '{}' not found in configuration.\n\n{}",
+                    requested, suggestion
+                )
+            }
+            DevshellError::NoUserDeclared => {
+                write!(f, "No users declared in configuration.\n\nAdd at least one user to your devshell config:\n\n\
+[[user]]\nkind = \"container_local\"\nname = \"dev\"\ndefault = true\n\n\
+Or for host user mirroring:\n\n\
+[[user]]\nkind = \"host_mirror\"\nname = \"jenicola\"\nproxy = \"dev\"\nhome = \"/home/dev\"\ndefault = true")
+            }
+            DevshellError::NoDefaultUser => {
+                write!(
+                    f,
+                    "No default user marked in configuration.\n\n\
+Exactly one user must have `default = true` in your devshell config:\n\n\
+[[user]]\nkind = \"container_local\"\nname = \"dev\"\ndefault = true"
+                )
+            }
+            DevshellError::MultipleDefaultUsers => {
+                write!(
+                    f,
+                    "Multiple users marked as default.\n\n\
+Only one user can have `default = true` in your devshell config."
+                )
+            }
             // DevshellError::DockerNotInstalled => {
             // write!(f, "Docker is not installed or not in PATH")
             // }
