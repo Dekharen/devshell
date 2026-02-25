@@ -38,7 +38,7 @@ pub fn run_container(
             match action.as_str() {
                 "attach" => {
                     if let Some(attach_cmd) = &config.attach_command {
-                        container::attach_to_container(container_name, attach_cmd)?;
+                        container::attach_to_container(container_name, attach_cmd, user)?;
                     } else {
                         return Err(DevshellError::DockerError(
                             "Cannot attach to container: attach_command not set in config"
@@ -77,7 +77,7 @@ pub fn run_container(
             if let Some(attach_cmd) = &config.attach_command {
                 // Small delay to ensure container is ready
                 std::thread::sleep(std::time::Duration::from_millis(500));
-                container::attach_to_container(container_name, attach_cmd)?;
+                container::attach_to_container(container_name, attach_cmd, user)?;
             } else {
                 // No attach command, just start the container
                 println!("Container started (no attach command configured)");

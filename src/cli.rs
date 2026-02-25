@@ -123,8 +123,16 @@ fn attach_to_container(name: &String) -> Result<(), DevshellError> {
 
     if let Some(container_name) = target_container {
         let (config, _) = load::load_config_with_source(Some(name))?;
-        if let Some(attach_cmd) = config.attach_command {
-            container::attach_to_container(&container_name, &attach_cmd)
+
+        // Get attach command first, then validate and get user
+        let attach_cmd = config.attach_command.clone();
+
+        // Validate and get the default user
+        config.validate_users()?;
+        let user = config.get_default_user();
+
+        if let Some(attach_cmd) = attach_cmd {
+            container::attach_to_container(&container_name, &attach_cmd, user)
         } else {
             let msg = format!(
                 "Container '{}' exists but has no attach_command configured",

@@ -141,11 +141,21 @@ pub fn run_attached_container(
         }
     }
 
-    // Attach immediately
+    // Attach immediately - always use -u since user is always available
     let attach_cmd = config.attach_command.as_deref().unwrap_or("/bin/bash");
+    let user_name = user.map(|u| u.name().to_string());
+
+    let mut exec_args = vec!["exec"];
+    if let Some(ref name) = user_name {
+        exec_args.push("-u");
+        exec_args.push(name);
+    }
+    exec_args.push("-it");
+    exec_args.push(container_name);
+    exec_args.push(attach_cmd);
 
     let mut child = Command::new("docker")
-        .args(["exec", "-it", container_name, attach_cmd])
+        .args(&exec_args)
         .spawn()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -265,6 +275,7 @@ fn run_chown(
 pub fn attach_to_container(
     container_name: &str,
     attach_command: &str,
+    user: Option<&UserEntry>,
 ) -> Result<(), DevshellError> {
     // Verify container is running before attaching
     if !is_container_running(container_name)? {
@@ -274,12 +285,23 @@ pub fn attach_to_container(
         )));
     }
 
+    let user_name = user.map(|u| u.name().to_string());
+
+    let mut exec_args = vec!["exec"];
+    if let Some(ref name) = user_name {
+        exec_args.push("-u");
+        exec_args.push(name);
+    }
+    exec_args.push("-it");
+    exec_args.push(container_name);
+    exec_args.push(attach_command);
+
     let mut child = Command::new("docker")
-        .args(["exec", "-it", container_name, attach_command])
+        .args(&exec_args)
         .spawn()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
-            context: "Attaching to existing container".to_string(),
+            context: "Attaching to container".to_string(),
             file_path: None,
         })?;
 
