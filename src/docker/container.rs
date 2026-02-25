@@ -22,8 +22,7 @@ pub fn container_exists(container_name: &str) -> Result<bool, DevshellError> {
             file_path: None,
         })?;
 
-    let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    Ok(status != "no such container")
+    Ok(output.status.success())
 }
 
 pub fn is_container_running(container_name: &str) -> Result<bool, DevshellError> {
@@ -35,6 +34,11 @@ pub fn is_container_running(container_name: &str) -> Result<bool, DevshellError>
             context: "Checking if container is running".to_string(),
             file_path: None,
         })?;
+
+    // If command failed, container doesn't exist
+    if !output.status.success() {
+        return Ok(false);
+    }
 
     let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
     Ok(status == "running")
@@ -122,7 +126,9 @@ pub fn run_attached_container(
     }
 
     if !is_container_running(container_name)? {
-        return Err(DevshellError::DockerError("Container failed to start within expected time".to_string()));
+        return Err(DevshellError::DockerError(
+            "Container failed to start within expected time".to_string(),
+        ));
     }
 
     // Additional pause for container initialization
