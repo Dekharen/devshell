@@ -237,7 +237,7 @@ fn run_chown(
     );
 
     Command::new("docker")
-        .args(["exec", container_name, "sh", "-c", &chown_cmd])
+        .args(["exec",  "-u","root", container_name, "sh", "-c", &chown_cmd])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -256,7 +256,7 @@ fn run_chown(
     let write_marker_cmd = format!("cat > {} << 'EOF'\n{}EOF", marker_path, marker_content);
 
     Command::new("docker")
-        .args(["exec", container_name, "sh", "-c", &write_marker_cmd])
+        .args(["exec", "-u","root", container_name, "sh", "-c", &write_marker_cmd])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
