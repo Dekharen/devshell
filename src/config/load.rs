@@ -3,11 +3,6 @@ use crate::error::{DevshellError, IoErrorContext};
 use crate::fs;
 use std::path::PathBuf;
 
-pub fn load_config(name: Option<&str>) -> Result<Config, DevshellError> {
-    let (config, _is_local) = load_config_with_source(name)?;
-    Ok(config)
-}
-
 pub fn load_config_with_source(name: Option<&str>) -> Result<(Config, bool), DevshellError> {
     if let Some(name) = name {
         let config = load_named_config(name)?;

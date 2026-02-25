@@ -64,15 +64,6 @@ impl Diagnosis {
             Diagnosis::SyntaxWarning { .. } => Severity::Info,
         }
     }
-
-    pub fn file_path(&self) -> Option<&String> {
-        match self {
-            Diagnosis::FieldMisplacement { file_path, .. } => file_path.as_ref(),
-            Diagnosis::MissingRequiredField { file_path, .. } => file_path.as_ref(),
-            Diagnosis::InconsistentConfiguration { file_path, .. } => file_path.as_ref(),
-            Diagnosis::SyntaxWarning { file_path, .. } => file_path.as_ref(),
-        }
-    }
 }
 
 impl fmt::Display for DevshellError {

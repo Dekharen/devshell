@@ -9,13 +9,30 @@ pub fn run_container(
     image_name: &str,
     container_name: &str,
     user: Option<&UserEntry>,
+    recreate: bool,
 ) -> Result<(), DevshellError> {
     // Check if container already exists
     if container::container_exists(container_name)? {
         let is_running = container::is_container_running(container_name)?;
-        println!("{container_name} name {is_running}");
 
-        if is_running {
+        if recreate {
+            // Force recreation - remove existing container and create new one
+            println!("Recreating container '{}'...", container_name);
+            Command::new("docker")
+                .args(&["rm", "-f", container_name])
+                .output()
+                .map_err(|e| DevshellError::IoErrorWithContext {
+                    error: e,
+                    context: "Removing existing container".to_string(),
+                    file_path: None,
+                })?;
+
+            if config.attach_command.is_some() {
+                container::run_attached_container(config, image_name, container_name, user)?;
+            } else {
+                run_simple_container(config, image_name, container_name)?;
+            }
+        } else if is_running {
             // Container is running, prompt user
             let action = container::prompt_container_action(container_name)?;
             match action.as_str() {
@@ -49,27 +66,21 @@ pub fn run_container(
                 _ => unreachable!(),
             }
         } else {
-            // Container exists but is stopped, recreate it for consistency
+            // Container exists but is stopped, auto-start and attach
             println!(
-                "Container '{}' is stopped. Recreating for consistency...",
+                "Container '{}' is stopped. Starting and attaching...",
                 container_name
             );
 
-            // Remove stopped container
-            Command::new("docker")
-                .args(&["rm", "-f", container_name])
-                .output()
-                .map_err(|e| DevshellError::IoErrorWithContext {
-                    error: e,
-                    context: "Removing stopped container".to_string(),
-                    file_path: None,
-                })?;
+            container::start_container(container_name)?;
 
-            // Create fresh container
-            if config.attach_command.is_some() {
-                container::run_attached_container(config, image_name, container_name, user)?;
+            if let Some(attach_cmd) = &config.attach_command {
+                // Small delay to ensure container is ready
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                container::attach_to_container(container_name, attach_cmd)?;
             } else {
-                run_simple_container(config, image_name, container_name)?;
+                // No attach command, just start the container
+                println!("Container started (no attach command configured)");
             }
         }
     } else {
@@ -78,7 +89,7 @@ pub fn run_container(
             // Long-lived container with attach command
             container::run_attached_container(config, image_name, container_name, user)?;
         } else {
-            // Standard one-shot container (existing logic)
+            // Standard one-shot container
             run_simple_container(config, image_name, container_name)?;
         }
     }

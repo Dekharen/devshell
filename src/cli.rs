@@ -24,6 +24,9 @@ pub enum Commands {
         /// User to run as (must be declared in config)
         #[arg(short, long)]
         user: Option<String>,
+        /// Force recreation of container (removes existing and creates new)
+        #[arg(short, long)]
+        recreate: bool,
     },
     /// Show a Dockerfile fragment
     Show {
@@ -55,7 +58,11 @@ pub fn run() {
 
 fn handle_command(command: Commands) -> Result<(), DevshellError> {
     match command {
-        Commands::Run { name, user } => {
+        Commands::Run {
+            name,
+            user,
+            recreate,
+        } => {
             let (config, is_local) = load::load_config_with_source(name.as_deref())?;
 
             config.validate_users()?;
@@ -63,18 +70,25 @@ fn handle_command(command: Commands) -> Result<(), DevshellError> {
             let selected_user = config.find_user_or_default(user.as_deref())?;
 
             eprintln!(
-                "DEBUG: Config loaded: {}, is_local: {}, attach: {:?}, user: {}",
+                "DEBUG: Config loaded: {}, is_local: {}, attach: {:?}, user: {}, recreate: {}",
                 config.name,
                 is_local,
                 config.attach_command,
-                selected_user.name()
+                selected_user.name(),
+                recreate
             );
 
             let image_name = build::build_image(&config.name, &config.stages)?;
             eprintln!("DEBUG: Image name: {}", image_name);
             let container_name = container::get_container_name(&config.name, is_local);
             eprintln!("DEBUG: Container name: {}", container_name);
-            run::run_container(&config, &image_name, &container_name, Some(selected_user))?;
+            run::run_container(
+                &config,
+                &image_name,
+                &container_name,
+                Some(selected_user),
+                recreate,
+            )?;
             build::cleanup_temp_files()?;
         }
         Commands::Show { fragment } => {

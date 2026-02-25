@@ -823,60 +823,36 @@ kind = "root"
     }
 
     #[test]
-    fn test_get_host_mirror_user() {
-        let config = Config {
-            name: "test".to_string(),
-            stages: vec!["@base/debian".to_string()],
-            docker_args: vec![],
-            volumes: vec![],
-            attach_command: None,
-            users: vec![
-                crate::config::schema::UserEntry {
-                    user: crate::config::schema::User::ContainerLocal {
-                        name: "dev".to_string(),
-                        home: None,
-                        shell: None,
-                    },
-                    default: true,
-                },
-                crate::config::schema::UserEntry {
-                    user: crate::config::schema::User::HostMirror {
-                        name: "jenicola".to_string(),
-                        proxy: "dev".to_string(),
-                        home: "/home/dev".to_string(),
-                    },
-                    default: false,
-                },
-            ],
+    fn test_user_as_host_mirror_helper() {
+        // Test as_host_mirror on HostMirror variant
+        let host_mirror = crate::config::schema::User::HostMirror {
+            name: "jenicola".to_string(),
+            proxy: "dev".to_string(),
+            home: "/home/dev".to_string(),
         };
 
-        let result = config.get_host_mirror_user();
+        let result = host_mirror.as_host_mirror();
         assert!(result.is_some());
         let (name, proxy, home) = result.unwrap();
         assert_eq!(name, "jenicola");
         assert_eq!(proxy, "dev");
         assert_eq!(home, "/home/dev");
-    }
 
-    #[test]
-    fn test_get_host_mirror_user_none() {
-        let config = Config {
-            name: "test".to_string(),
-            stages: vec!["@base/debian".to_string()],
-            docker_args: vec![],
-            volumes: vec![],
-            attach_command: None,
-            users: vec![crate::config::schema::UserEntry {
-                user: crate::config::schema::User::ContainerLocal {
-                    name: "dev".to_string(),
-                    home: None,
-                    shell: None,
-                },
-                default: true,
-            }],
+        // Test as_host_mirror on non-HostMirror variants returns None
+        let container_local = crate::config::schema::User::ContainerLocal {
+            name: "dev".to_string(),
+            home: None,
+            shell: None,
         };
+        assert!(container_local.as_host_mirror().is_none());
 
-        let result = config.get_host_mirror_user();
-        assert!(result.is_none());
+        let named_existing = crate::config::schema::User::NamedExisting {
+            name: "node".to_string(),
+            home: None,
+        };
+        assert!(named_existing.as_host_mirror().is_none());
+
+        let root = crate::config::schema::User::Root {};
+        assert!(root.as_host_mirror().is_none());
     }
 }

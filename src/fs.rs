@@ -18,25 +18,6 @@ pub fn get_fragments_dir() -> PathBuf {
     get_data_dir().join("fragments")
 }
 
-pub fn ensure_directories_exist() -> Result<(), DevshellError> {
-    let config_dir = get_config_dir();
-    let fragments_dir = get_fragments_dir();
-
-    if !config_dir.exists() {
-        std::fs::create_dir_all(&config_dir)
-            .with_context_and_file("Creating config directory", &config_dir.to_string_lossy())?;
-    }
-
-    if !fragments_dir.exists() {
-        std::fs::create_dir_all(&fragments_dir).with_context_and_file(
-            "Creating fragments directory",
-            &fragments_dir.to_string_lossy(),
-        )?;
-    }
-
-    Ok(())
-}
-
 pub fn ensure_dir_exists(path: &std::path::Path) -> Result<(), std::io::Error> {
     if !path.exists() {
         std::fs::create_dir_all(path)?;

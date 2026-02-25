@@ -34,19 +34,11 @@ impl User {
         }
     }
 
-    pub fn is_host_mirror(&self) -> bool {
-        matches!(self, User::HostMirror { .. })
-    }
-
     pub fn as_host_mirror(&self) -> Option<(&str, &str, &str)> {
         match self {
             User::HostMirror { name, proxy, home } => Some((name, proxy, home)),
             _ => None,
         }
-    }
-
-    pub fn is_root(&self) -> bool {
-        matches!(self, User::Root {})
     }
 }
 
@@ -84,15 +76,6 @@ impl Config {
 
     pub fn get_default_user(&self) -> Option<&UserEntry> {
         self.users.iter().find(|u| u.default)
-    }
-
-    pub fn get_host_mirror_user(&self) -> Option<(&str, &str, &str)> {
-        for entry in &self.users {
-            if let Some((name, proxy, home)) = entry.user.as_host_mirror() {
-                return Some((name, proxy, home));
-            }
-        }
-        None
     }
 
     pub fn validate_users(&self) -> Result<(), DevshellError> {
