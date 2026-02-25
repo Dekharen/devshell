@@ -109,7 +109,7 @@ Or for host mirroring:\n\n\
                 })
         } else {
             self.get_default_user()
-                .ok_or_else(|| DevshellError::NoDefaultUser)
+                .ok_or(DevshellError::NoDefaultUser)
         }
     }
 }

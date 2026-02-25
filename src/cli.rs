@@ -130,17 +130,17 @@ fn attach_to_container(name: &String) -> Result<(), DevshellError> {
                 "Container '{}' exists but has no attach_command configured",
                 container_name
             );
-            return Err(DevshellError::DockerError(msg));
+            Err(DevshellError::DockerError(msg))
         }
     } else {
         let msg = format!("No running devshell container found matching '{}'", name);
-        return Err(DevshellError::DockerError(msg));
+        Err(DevshellError::DockerError(msg))
     }
 }
 
 fn list_devshell_containers() -> Result<Vec<String>, DevshellError> {
     let output = Command::new("docker")
-        .args(&["ps", "--format={{.Names}}"])
+        .args(["ps", "--format={{.Names}}"])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,

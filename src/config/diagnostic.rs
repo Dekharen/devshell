@@ -117,7 +117,7 @@ impl ConfigDiagnostic {
 
         // Parse as generic value first for structural analysis
         let raw_value: toml::Value =
-            toml::from_str(config_str).map_err(|e| DevshellError::InvalidToml(e))?;
+            toml::from_str(config_str).map_err(DevshellError::InvalidToml)?;
 
         // Check for field misplacement issues
         Self::check_field_misplacement(&raw_value, &mut diagnoses, &file_path);

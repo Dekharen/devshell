@@ -14,7 +14,7 @@ pub fn get_container_name(config_name: &str, is_local: bool) -> String {
 
 pub fn container_exists(container_name: &str) -> Result<bool, DevshellError> {
     let output = Command::new("docker")
-        .args(&["inspect", "--format={{.State.Status}}", container_name])
+        .args(["inspect", "--format={{.State.Status}}", container_name])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -28,7 +28,7 @@ pub fn container_exists(container_name: &str) -> Result<bool, DevshellError> {
 
 pub fn is_container_running(container_name: &str) -> Result<bool, DevshellError> {
     let output = Command::new("docker")
-        .args(&["inspect", "--format={{.State.Status}}", container_name])
+        .args(["inspect", "--format={{.State.Status}}", container_name])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -42,7 +42,7 @@ pub fn is_container_running(container_name: &str) -> Result<bool, DevshellError>
 
 pub fn start_container(container_name: &str) -> Result<(), DevshellError> {
     let output = Command::new("docker")
-        .args(&["start", container_name])
+        .args(["start", container_name])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -122,9 +122,7 @@ pub fn run_attached_container(
     }
 
     if !is_container_running(container_name)? {
-        return Err(DevshellError::DockerError(format!(
-            "Container failed to start within expected time"
-        )));
+        return Err(DevshellError::DockerError("Container failed to start within expected time".to_string()));
     }
 
     // Additional pause for container initialization
@@ -141,7 +139,7 @@ pub fn run_attached_container(
     let attach_cmd = config.attach_command.as_deref().unwrap_or("/bin/bash");
 
     let mut child = Command::new("docker")
-        .args(&["exec", "-it", container_name, attach_cmd])
+        .args(["exec", "-it", container_name, attach_cmd])
         .spawn()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -177,7 +175,7 @@ fn run_chown(
 
     // Check if already chowned
     let check = Command::new("docker")
-        .args(&["exec", container_name, "test", "-f", marker_path])
+        .args(["exec", container_name, "test", "-f", marker_path])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -191,9 +189,9 @@ fn run_chown(
     }
 
     // Create marker directory if it doesn't exist
-    let mkdir_cmd = format!("mkdir -p /devshell/marker");
+    let mkdir_cmd = "mkdir -p /devshell/marker".to_string();
     Command::new("docker")
-        .args(&["exec", container_name, "sh", "-c", &mkdir_cmd])
+        .args(["exec", container_name, "sh", "-c", &mkdir_cmd])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -204,7 +202,7 @@ fn run_chown(
     // Count files first, then chown
     let count_cmd = format!("find {} -user {} 2>/dev/null | wc -l", home, proxy);
     let count_output = Command::new("docker")
-        .args(&["exec", container_name, "sh", "-c", &count_cmd])
+        .args(["exec", container_name, "sh", "-c", &count_cmd])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -223,7 +221,7 @@ fn run_chown(
     );
 
     Command::new("docker")
-        .args(&["exec", container_name, "sh", "-c", &chown_cmd])
+        .args(["exec", container_name, "sh", "-c", &chown_cmd])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -242,7 +240,7 @@ fn run_chown(
     let write_marker_cmd = format!("cat > {} << 'EOF'\n{}EOF", marker_path, marker_content);
 
     Command::new("docker")
-        .args(&["exec", container_name, "sh", "-c", &write_marker_cmd])
+        .args(["exec", container_name, "sh", "-c", &write_marker_cmd])
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,
@@ -271,7 +269,7 @@ pub fn attach_to_container(
     }
 
     let mut child = Command::new("docker")
-        .args(&["exec", "-it", container_name, attach_command])
+        .args(["exec", "-it", container_name, attach_command])
         .spawn()
         .map_err(|e| DevshellError::IoErrorWithContext {
             error: e,

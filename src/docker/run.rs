@@ -19,7 +19,7 @@ pub fn run_container(
             // Force recreation - remove existing container and create new one
             println!("Recreating container '{}'...", container_name);
             Command::new("docker")
-                .args(&["rm", "-f", container_name])
+                .args(["rm", "-f", container_name])
                 .output()
                 .map_err(|e| DevshellError::IoErrorWithContext {
                     error: e,
@@ -49,7 +49,7 @@ pub fn run_container(
                 "replace" => {
                     // Remove existing container and recreate
                     Command::new("docker")
-                        .args(&["rm", "-f", container_name])
+                        .args(["rm", "-f", container_name])
                         .output()
                         .map_err(|e| DevshellError::IoErrorWithContext {
                             error: e,

@@ -3,8 +3,8 @@ use crate::fragments::embedded;
 use crate::fs;
 
 pub fn resolve_fragment(reference: &str) -> Result<String, DevshellError> {
-    if reference.starts_with('@') {
-        resolve_embedded_fragment(&reference[1..])
+    if let Some(stripped) = reference.strip_prefix('@') {
+        resolve_embedded_fragment(stripped)
     } else {
         resolve_disk_fragment(reference)
     }
@@ -44,8 +44,8 @@ fn resolve_disk_fragment(path: &str) -> Result<String, DevshellError> {
         )));
     }
 
-    Ok(std::fs::read_to_string(&fragment_path)
-        .with_context_and_file("Reading disk fragment", &fragment_path.to_string_lossy())?)
+    std::fs::read_to_string(&fragment_path)
+        .with_context_and_file("Reading disk fragment", &fragment_path.to_string_lossy())
 }
 
 pub fn list_embedded_fragments() -> Vec<&'static str> {

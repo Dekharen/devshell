@@ -22,7 +22,7 @@ pub fn build_image(config_name: &str, stages: &[String]) -> Result<String, Devsh
     let image_name = format!("devshell-{}", config_name);
 
     let output = Command::new("docker")
-        .args(&["build", "-t", &image_name, "."])
+        .args(["build", "-t", &image_name, "."])
         .current_dir(&temp_dir)
         .output()
         .map_err(|e| DevshellError::IoErrorWithContext {
